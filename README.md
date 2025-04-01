@@ -19,8 +19,12 @@ maekawago/
 ├── node/
 │   ├── node_std.go  # Standard implementation with basic mutual exclusion
 │   ├── node_opt.go  # Optimized implementation incorporating heartbeat-based monitoring
-└── utils/
-    └── utils.go     # Utility functions for logging and randomization
+├── utils/
+│   └── utils.go     # Utility functions for logging and randomization
+└── docs/
+    ├── CONTRIBUTING.md   # Contribution guidelines
+    ├── ARCHITECTURE.md   # Detailed design documentation
+    ├── USAGE.md          # Usage instructions and expected outputs
 ```
 
 ## Installation and Setup
@@ -48,7 +52,7 @@ go run -tags=optimized main.go
 ```
 
 ## Configuration and Customization
-To modify the number of participating nodes and their quorum structures, update `config/config.go` as follows:
+To modify the number of participating nodes and their quorum structures, update [`config/config.go`](config/config.go) as follows:
 ```go
 const TotalNodes = 5
 var Quorums = [][]int{
@@ -66,7 +70,8 @@ var Quorums = [][]int{
 3. Access is granted or deferred based on quorum-based voting.
 4. The optimized version enhances robustness through heartbeat-based monitoring, reducing the risk of deadlocks and failures.
 
-   
+For more details, refer to [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Performance Metrics
 | Version     | Average Execution Time | Messages Exchanged |
 |------------|----------------------|------------------|
@@ -74,7 +79,7 @@ var Quorums = [][]int{
 | Optimized  | 150ms                 | 10               |
 
 ## Error Handling & Debugging
-### Common Errors
+### Common Errors and Solutions
 1. **Build Constraint Exclusion**  
    **Solution:** Ensure that either `node_std.go` or `node_opt.go` is included by specifying the correct build tag (`-tags=standard` or `-tags=optimized`).
 
@@ -87,8 +92,7 @@ var Quorums = [][]int{
 4. **Network Failures in Optimized Version**  
    **Solution:** Ensure that heartbeat messages are being sent and received correctly.
 
-
-
+For more troubleshooting tips, refer to [USAGE.md](docs/USAGE.md).
 
 ## Git Workflow for Repository Management
 ### Committing and Pushing Changes
@@ -98,8 +102,12 @@ git add .
 git commit -m "Updated project files"
 git push origin main
 ```
+For contributing guidelines, see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Licensing and Contributions
 This project is distributed under the MIT License, allowing unrestricted use and modification. Contributions to improve the algorithm’s implementation and efficiency are welcomed.
+Refer to [CONTRIBUTING.md](docs/CONTRIBUTING.md) for more details on contributing.
+
+---
 
 
