@@ -43,11 +43,13 @@ func (m Message) String() string {
 
 // Node represents a participant in the distributed system.
 type Node struct {
-	ID       int
-	Quorum   []int   // IDs of nodes in this node's quorum
-	Nodes    []*Node // Reference to all nodes (simulation)
-	Incoming chan Message
-	granted  bool // Indicates if this node has already granted permission
+	ID              int
+	Quorum          []int     // IDs of nodes in this node's quorum
+	Nodes           []*Node   // References to all nodes (simulation)
+	Incoming        chan Message
+	granted         bool           // Indicates if this node has already granted permission
+	pendingRequests []Message      // Queue for requests when already granted
+	mu              sync.Mutex     // Protects access to granted flag and queue
 }
 
 // NewNode creates and initializes a new node.
@@ -56,6 +58,7 @@ func NewNode(id int) *Node {
 		ID:       id,
 		Incoming: make(chan Message, 100),
 		granted:  false,
+		// pendingRequests is nil initially and will be allocated when needed.
 	}
 }
 
@@ -93,8 +96,12 @@ func (n *Node) processMessage(msg Message) {
 	}
 }
 
+// handleRequest processes an incoming request message.
+// If the node has not already granted permission, it grants immediately.
+// Otherwise, it queues the request.
 func (n *Node) handleRequest(msg Message) {
-	// Grant the request if not already granted; otherwise, ignore (or queue in a full version)
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	if !n.granted {
 		n.granted = true
 		grantMsg := Message{
@@ -105,13 +112,32 @@ func (n *Node) handleRequest(msg Message) {
 		}
 		sendMessage(grantMsg, n.Nodes[msg.From])
 	} else {
-		utils.Log(fmt.Sprintf("Node %d already granted permission; ignoring request from %d", n.ID, msg.From))
+		// Append request to the queue.
+		n.pendingRequests = append(n.pendingRequests, msg)
+		utils.Log(fmt.Sprintf("Node %d queued request from %d", n.ID, msg.From))
 	}
 }
 
+// handleRelease processes a release message.
+// It clears the granted flag and, if any requests are waiting, grants the next one.
 func (n *Node) handleRelease(msg Message) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	n.granted = false
 	utils.Log(fmt.Sprintf("Node %d released grant for Node %d", n.ID, msg.From))
+	// If there are queued requests, grant permission to the first in the queue.
+	if len(n.pendingRequests) > 0 {
+		next := n.pendingRequests[0]
+		n.pendingRequests = n.pendingRequests[1:]
+		n.granted = true
+		grantMsg := Message{
+			From:      n.ID,
+			To:        next.From,
+			Type:      Grant,
+			Timestamp: time.Now().UnixNano(),
+		}
+		sendMessage(grantMsg, n.Nodes[next.From])
+	}
 }
 
 func sendMessage(msg Message, target *Node) {
@@ -132,10 +158,10 @@ func (n *Node) RequestCriticalSection() {
 		sendMessage(req, n.Nodes[nodeID])
 	}
 
-	// Simulate waiting for all grants
+	// Simulate waiting for grants (in a complete implementation, we'd wait for actual grants).
 	time.Sleep(1 * time.Second)
 
-	// Enter critical section
+	// Enter the critical section.
 	n.enterCriticalSection()
 
 	// Upon completion, send release messages.
@@ -152,7 +178,7 @@ func (n *Node) RequestCriticalSection() {
 
 func (n *Node) enterCriticalSection() {
 	utils.Log(fmt.Sprintf("Node %d entering critical section", n.ID))
-	// Simulate work in the critical section
+	// Simulate work in the critical section.
 	time.Sleep(500 * time.Millisecond)
 	utils.Log(fmt.Sprintf("Node %d exiting critical section", n.ID))
 }

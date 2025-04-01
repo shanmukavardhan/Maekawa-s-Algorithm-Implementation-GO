@@ -54,6 +54,10 @@ type Node struct {
 	mu              sync.Mutex
 	pendingRequests []Message
 	heartbeatStop   chan bool
+
+	// New fields for critical section coordination
+	waitingForGrant bool
+	grantCh         chan Message
 }
 
 // NewNode creates a new node instance and starts its heartbeat.
@@ -63,6 +67,7 @@ func NewNode(id int) *Node {
 		Incoming:      make(chan Message, 100),
 		granted:       false,
 		heartbeatStop: make(chan bool),
+		grantCh:       make(chan Message, 100), // buffered channel for grants
 	}
 	go n.sendHeartbeat()
 	return n
@@ -90,17 +95,31 @@ func (n *Node) Start(wg *sync.WaitGroup) {
 	}
 }
 
+// processMessage routes grant messages to the dedicated grant channel if waitingForGrant is true.
 func (n *Node) processMessage(msg Message) {
+	// For grant messages, if we are waiting in critical section request mode,
+	// send the message to the grant channel.
+	if msg.Type == Grant {
+		n.mu.Lock()
+		if n.waitingForGrant {
+			n.mu.Unlock()
+			n.grantCh <- msg
+			return
+		}
+		n.mu.Unlock()
+	}
+	// Otherwise, log and process normally.
 	utils.Log(fmt.Sprintf("Node %d received %s", n.ID, msg))
 	switch msg.Type {
 	case Request:
 		n.handleRequest(msg)
 	case Grant:
+		// If not waiting, just log the grant.
 		utils.Log(fmt.Sprintf("Node %d received Grant from %d", n.ID, msg.From))
 	case Release:
 		n.handleRelease(msg)
 	case Heartbeat:
-		// Handle heartbeat messages if needed
+		// Handle heartbeat messages if needed.
 		utils.Log(fmt.Sprintf("Node %d received Heartbeat from %d", n.ID, msg.From))
 	}
 }
@@ -129,7 +148,7 @@ func (n *Node) handleRelease(msg Message) {
 	defer n.mu.Unlock()
 	n.granted = false
 	utils.Log(fmt.Sprintf("Node %d released grant for Node %d", n.ID, msg.From))
-	// Process the next queued request if any
+	// Process the next queued request if any.
 	if len(n.pendingRequests) > 0 {
 		next := n.pendingRequests[0]
 		n.pendingRequests = n.pendingRequests[1:]
@@ -151,6 +170,13 @@ func sendMessage(msg Message, target *Node) {
 
 // RequestCriticalSection waits (with timeout) for grants before entering the critical section.
 func (n *Node) RequestCriticalSection() {
+	// Set up to collect grants.
+	n.mu.Lock()
+	n.waitingForGrant = true
+	// Clear the grant channel in case there is leftover data.
+	n.grantCh = make(chan Message, 100)
+	n.mu.Unlock()
+
 	// Send request messages to quorum nodes.
 	for _, nodeID := range n.Quorum {
 		req := Message{
@@ -168,16 +194,24 @@ func (n *Node) RequestCriticalSection() {
 	requiredGrants := len(n.Quorum)
 	for grantsReceived < requiredGrants {
 		select {
-		case msg := <-n.Incoming:
+		case msg := <-n.grantCh:
 			if msg.Type == Grant {
 				grantsReceived++
 				utils.Log(fmt.Sprintf("Node %d counting grant from %d (%d/%d)", n.ID, msg.From, grantsReceived, requiredGrants))
 			}
 		case <-timeout:
 			utils.Log(fmt.Sprintf("Node %d timed out waiting for grants", n.ID))
+			n.mu.Lock()
+			n.waitingForGrant = false
+			n.mu.Unlock()
 			return
 		}
 	}
+
+	// Finished waiting; reset flag.
+	n.mu.Lock()
+	n.waitingForGrant = false
+	n.mu.Unlock()
 
 	n.enterCriticalSection()
 
