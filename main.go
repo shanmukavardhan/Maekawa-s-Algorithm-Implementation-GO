@@ -17,7 +17,8 @@ func main() {
 
 	// Create nodes
 	for i := 0; i < numNodes; i++ {
-		nodes[i] = node.NewNode(i)
+		quorumSize := len(config.Quorums[i])
+		nodes[i] = node.NewNode(i, quorumSize)
 	}
 
 	// Set quorum and node references
