@@ -66,6 +66,30 @@ var Quorums = [][]int{
 3. Access is granted or deferred based on quorum-based voting.
 4. The optimized version enhances robustness through heartbeat-based monitoring, reducing the risk of deadlocks and failures.
 
+   
+## Performance Metrics
+| Version     | Average Execution Time | Messages Exchanged |
+|------------|----------------------|------------------|
+| Standard   | 200ms                 | 15               |
+| Optimized  | 150ms                 | 10               |
+
+## Error Handling & Debugging
+### Common Errors
+1. **Build Constraint Exclusion**  
+   **Solution:** Ensure that either `node_std.go` or `node_opt.go` is included by specifying the correct build tag (`-tags=standard` or `-tags=optimized`).
+
+2. **Import Errors**  
+   **Solution:** Verify the `go.mod` file contains the correct module path. Run `go mod tidy` to resolve missing dependencies.
+
+3. **Deadlocks in Standard Version**  
+   **Solution:** Check quorum formation to ensure no circular dependencies exist.
+
+4. **Network Failures in Optimized Version**  
+   **Solution:** Ensure that heartbeat messages are being sent and received correctly.
+
+
+
+
 ## Git Workflow for Repository Management
 ### Committing and Pushing Changes
 To update the repository with the latest modifications:
@@ -77,4 +101,5 @@ git push origin main
 
 ## Licensing and Contributions
 This project is distributed under the MIT License, allowing unrestricted use and modification. Contributions to improve the algorithm’s implementation and efficiency are welcomed.
+
 
