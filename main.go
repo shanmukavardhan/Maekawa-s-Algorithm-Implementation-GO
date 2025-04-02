@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
-	"sync"
-	"time"
-
 	"maekawago/config"
 	"maekawago/node"
 	"maekawago/utils"
+	"sync"
+	"time"
 )
 
 func main() {

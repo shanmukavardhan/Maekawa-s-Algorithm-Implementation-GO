@@ -16,6 +16,12 @@ const (
 	Request MessageType = iota
 	Grant
 	Release
+	Heartbeat // Added for failure detection
+)
+
+const (
+	heartbeatInterval = 2 * time.Second // How often heartbeats are sent
+	heartbeatTimeout  = 5 * time.Second // Max time before assuming a node is down
 )
 
 type Message struct {
@@ -36,7 +42,11 @@ type Node struct {
 	quorumSize   int
 	waitingQueue *RequestQueue
 	pendingMap   map[int]bool
-	cond         *sync.Cond // Condition variable for efficient waiting
+	cond         *sync.Cond
+
+	// Heartbeat-related fields
+	lastHeartbeat map[int]time.Time // Track last heartbeat received from each node
+	stopChan      chan struct{}     // Channel to stop heartbeat monitoring
 }
 
 // RequestQueue using a linked list for efficient operations
@@ -78,13 +88,17 @@ func (q *RequestQueue) Dequeue() (int, bool) {
 
 func NewNode(id int, quorumSize int) *Node {
 	n := &Node{
-		ID:           id,
-		Incoming:     make(chan Message, 200), // Increased buffer size
-		quorumSize:   quorumSize,
-		waitingQueue: NewQueue(),
-		pendingMap:   make(map[int]bool),
+		ID:            id,
+		Incoming:      make(chan Message, 200), // Increased buffer size
+		quorumSize:    quorumSize,
+		waitingQueue:  NewQueue(),
+		pendingMap:    make(map[int]bool),
+		lastHeartbeat: make(map[int]time.Time),
+		stopChan:      make(chan struct{}),
 	}
 	n.cond = sync.NewCond(&n.mu) // Initialize condition variable
+	go n.monitorHeartbeats()     // Start monitoring heartbeats
+	go n.sendHeartbeats()        // Start sending heartbeats
 	return n
 }
 
@@ -103,6 +117,7 @@ func (n *Node) Start(wg *sync.WaitGroup) {
 		case msg := <-n.Incoming:
 			n.processMessage(msg)
 		case <-time.After(10 * time.Second):
+			close(n.stopChan) // Stop heartbeat monitoring
 			return
 		}
 	}
@@ -116,6 +131,8 @@ func (n *Node) processMessage(msg Message) {
 		n.handleGrant(msg)
 	case Release:
 		n.handleRelease(msg)
+	case Heartbeat:
+		n.handleHeartbeat(msg)
 	}
 }
 
@@ -186,6 +203,56 @@ func (n *Node) releaseCriticalSection() {
 	}
 }
 
+// sendHeartbeats sends periodic heartbeat messages to all quorum members.
+func (n *Node) sendHeartbeats() {
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			for _, nodeID := range n.Quorum {
+				sendMessage(Message{From: n.ID, To: nodeID, Type: Heartbeat, Timestamp: time.Now().UnixNano()}, n.Nodes[nodeID])
+			}
+		case <-n.stopChan:
+			return
+		}
+	}
+}
+
+// handleHeartbeat updates the last received heartbeat timestamp for a node.
+func (n *Node) handleHeartbeat(msg Message) {
+	n.mu.Lock()
+	n.lastHeartbeat[msg.From] = time.Now()
+	n.mu.Unlock()
+}
+
+// monitorHeartbeats detects failed nodes if heartbeats are not received in time.
+func (n *Node) monitorHeartbeats() {
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			n.mu.Lock()
+			now := time.Now()
+			for _, nodeID := range n.Quorum {
+				if lastTime, exists := n.lastHeartbeat[nodeID]; exists {
+					if now.Sub(lastTime) > heartbeatTimeout {
+						utils.Log(fmt.Sprintf("Node %d detected failure of Node %d!", n.ID, nodeID))
+					}
+				} else {
+					utils.Log(fmt.Sprintf("Node %d has not received heartbeat from Node %d yet!", n.ID, nodeID))
+				}
+			}
+			n.mu.Unlock()
+		case <-n.stopChan:
+			return
+		}
+	}
+}
+
 func sendMessage(msg Message, target *Node) {
 	utils.Log(fmt.Sprintf("Sending %s from %d to %d", msgTypeToString(msg.Type), msg.From, msg.To))
 	target.Incoming <- msg
@@ -199,6 +266,8 @@ func msgTypeToString(msgType MessageType) string {
 		return "Grant"
 	case Release:
 		return "Release"
+	case Heartbeat:
+		return "Heartbeat"
 	default:
 		return "Unknown"
 	}

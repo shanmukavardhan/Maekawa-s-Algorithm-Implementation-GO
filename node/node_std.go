@@ -1,5 +1,4 @@
-//go:build standard
-// +build standard
+//go:build !optimized
 
 package node
 
