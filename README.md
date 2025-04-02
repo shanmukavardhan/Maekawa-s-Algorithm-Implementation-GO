@@ -1,58 +1,60 @@
 # Implementation of Maekawa's Algorithm in Go
 
-## Abstract
-This project presents an implementation of Maekawa's mutual exclusion algorithm within a distributed computing environment using the Go programming language. The implementation includes both a standard version and an optimized variant, showcasing message-based coordination among distributed nodes to achieve mutual exclusion efficiently.
+## Overview
+This project presents an implementation of **Maekawa's mutual exclusion algorithm** within a distributed computing environment using the **Go programming language**. The system incorporates two distinct variations:
+- **Baseline implementation**
+- **Enhanced implementation** with heartbeat-driven failure detection
 
-## Key Features
-- Dual implementations: `standard` and `optimized`
-- Message-driven mutual exclusion utilizing request, grant, and release mechanisms
-- Heartbeat-based failure detection in the optimized variant
-- Quorum-based decision-making to ensure fairness and efficiency
-- Configurable simulation parameters for performance evaluation
+Maekawa’s algorithm facilitates **message-driven coordination** among distributed nodes to achieve efficient and scalable **mutual exclusion** in quorum-based systems.
 
-## Project Architecture
+## Features
+- **Dual Implementations**: `standard` (baseline) and `optimized` (failure-resilient)
+- **Message-Oriented Synchronization**: Employs request, grant, and release messages for mutual exclusion enforcement
+- **Proactive Fault Detection**: The optimized variant integrates heartbeat-based monitoring for robustness
+- **Quorum-Based Consensus Mechanism**: Ensures fairness and minimizes messaging overhead
+- **Configurable System Parameters**: Allows dynamic adjustment of node counts and quorum structures
+
+## Project Structure
 ```
 maekawago/
-├── main.go          # Primary execution entry point
+├── main.go          # Central execution module
 ├── config/
-│   └── config.go    # Configuration definitions for nodes and quorum structures
+│   └── config.go    # Configuration definitions governing nodes and quorums
 ├── node/
-│   ├── node_std.go  # Standard implementation with basic mutual exclusion
-│   ├── node_opt.go  # Optimized implementation incorporating heartbeat-based monitoring
+│   ├── node_std.go  # Standard Maekawa implementation
+│   ├── node_opt.go  # Optimized version incorporating failure detection
 ├── utils/
-│   └── utils.go     # Utility functions for logging and randomization
+│   └── utils.go     # Utility functions (logging, randomization, and message handling)
 └── docs/
     ├── CONTRIBUTING.md   # Contribution guidelines
-    ├── ARCHITECTURE.md   # Detailed design documentation
-    ├── USAGE.md          # Usage instructions and expected outputs
+    ├── ARCHITECTURE.md   # Comprehensive design documentation
+    ├── USAGE.md          # Detailed usage instructions and expected system behavior
 ```
 
-## Installation and Setup
+## Installation
 1. Clone the repository:
    ```sh
    git clone <your-repo-url>
    cd maekawago
    ```
-2. Verify that Go (version 1.18 or later) is installed:
+2. Ensure that Go **1.18 or later** is installed:
    ```sh
    go version
    ```
 
-## Execution Instructions
-### Running the Standard Implementation
-Execute the following command to run the standard version:
+## Execution
+### Launching the Baseline Implementation
 ```sh
 go run -tags=standard main.go
 ```
 
-### Running the Optimized Implementation
-For the optimized version, use:
+### Running the Enhanced Implementation
 ```sh
 go run -tags=optimized main.go
 ```
 
-## Configuration and Customization
-To modify the number of participating nodes and their quorum structures, update [`config/config.go`](config/config.go) as follows:
+## Configuration
+Adjust `config/config.go` to modify node count and quorum structures:
 ```go
 const TotalNodes = 5
 var Quorums = [][]int{
@@ -65,49 +67,43 @@ var Quorums = [][]int{
 ```
 
 ## Algorithmic Workflow
-1. Each node operates within a predefined quorum and engages in message passing.
-2. Nodes issue requests for access to the critical section.
-3. Access is granted or deferred based on quorum-based voting.
-4. The optimized version enhances robustness through heartbeat-based monitoring, reducing the risk of deadlocks and failures.
+1. Each node is associated with a **predefined quorum**.
+2. Nodes initiate access requests for the **critical section**.
+3. The quorum-based decision process grants or defers access based on the system state.
+4. The **optimized variant** incorporates **heartbeat-based monitoring** for proactive failure handling.
 
-For more details, refer to [ARCHITECTURE.md](docs/ARCHITECTURE.md).
+For a more granular analysis, consult [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Performance Metrics
-| Version     | Average Execution Time | Messages Exchanged |
-|------------|----------------------|------------------|
-| Standard   | 200ms                 | 15               |
-| Optimized  | 150ms                 | 10               |
+| Implementation | Avg Execution Time | Message Overhead |
+|--------------|------------------|------------------|
+| Standard    | 200ms             | 15 messages      |
+| Optimized   | 150ms             | 10 messages      |
 
-## Error Handling & Debugging
-### Common Errors and Solutions
-1. **Build Constraint Exclusion**  
-   **Solution:** Ensure that either `node_std.go` or `node_opt.go` is included by specifying the correct build tag (`-tags=standard` or `-tags=optimized`).
+## Troubleshooting Guide
+### Common Issues and Resolutions
+1. **Build Constraint Errors**
+   - Ensure correct usage of build tags (`-tags=standard` or `-tags=optimized`).
+2. **Import Resolution Failures**
+   - Execute `go mod tidy` to address dependency inconsistencies.
+3. **Potential Deadlocks in Baseline Implementation**
+   - Review quorum configurations to eliminate circular dependencies.
+4. **Network Latency in the Optimized Variant**
+   - Validate timely transmission and reception of heartbeat signals.
 
-2. **Import Errors**  
-   **Solution:** Verify the `go.mod` file contains the correct module path. Run `go mod tidy` to resolve missing dependencies.
+For further assistance, refer to [USAGE.md](docs/USAGE.md).
 
-3. **Deadlocks in Standard Version**  
-   **Solution:** Check quorum formation to ensure no circular dependencies exist.
-
-4. **Network Failures in Optimized Version**  
-   **Solution:** Ensure that heartbeat messages are being sent and received correctly.
-
-For more troubleshooting tips, refer to [USAGE.md](docs/USAGE.md).
-
-## Git Workflow for Repository Management
-### Committing and Pushing Changes
-To update the repository with the latest modifications:
+## Git Contribution Workflow
+### Committing Updates
 ```sh
 git add .
-git commit -m "Updated project files"
+git commit -m "Refactored implementation logic"
 git push origin main
 ```
-For contributing guidelines, see [CONTRIBUTING.md](docs/CONTRIBUTING.md).
+Consult [CONTRIBUTING.md](docs/CONTRIBUTING.md) for collaboration guidelines.
 
-## Licensing and Contributions
-This project is distributed under the MIT License, allowing unrestricted use and modification. Contributions to improve the algorithm’s implementation and efficiency are welcomed.
-Refer to [CONTRIBUTING.md](docs/CONTRIBUTING.md) for more details on contributing.
+## Licensing
+This project is distributed under the **MIT License**, permitting modification and redistribution. Contributions and refinements are encouraged!
 
 ---
-
 
